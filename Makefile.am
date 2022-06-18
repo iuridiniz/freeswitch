@@ -427,6 +427,29 @@ if ENABLE_CPP
 libfreeswitch_la_SOURCES += src/switch_cpp.cpp
 endif
 
+BUILT_SOURCES += src/include/switch_probes.h
+CLEANFILES += src/include/switch_probes.h
+nodist_libfreeswitch_la_SOURCES += src/include/switch_probes.h
+
+if ENABLE_DTRACE
+BUILT_SOURCES += src/probes.o
+CLEANFILES += src/probes.o
+nodist_libfreeswitch_la_SOURCES += src/probes.o
+libfreeswitch_la_LIBADD += src/probes.o
+src/include/switch_probes.h: $(switch_srcdir)/src/probes.d
+	$(DTRACE) -C -h -s $< -o $@.tmp
+	sed -e 's/FREESWITCH_/TRACE_FREESWITCH_/g' $@.tmp >$@
+	rm -f $@.tmp
+
+src/probes.o: $(switch_srcdir)/src/probes.d
+	$(DTRACE) -C -G -s $< -o $@
+
+else
+src/include/switch_probes.h: $(switch_srcdir)/src/probes.d
+	sed -f $(switch_srcdir)/gen_dummy_probes.sed $< > $@
+
+endif
+
 $(libfreeswitch_la_SOURCES): $(CORE_LIBS) $(switch_builddir)/modules.conf  
 
 src/include/switch_swigable_cpp.h: $(switch_srcdir)/src/include/switch_cpp.h

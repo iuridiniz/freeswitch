@@ -2448,16 +2448,6 @@ SWITCH_DECLARE(switch_core_session_t *) switch_core_session_request_uuid(switch_
 
 	switch_core_memory_pool_set_data(session->pool, "__session", session);
 
-	if (switch_channel_alloc(&session->channel, direction, session->pool) != SWITCH_STATUS_SUCCESS) {
-		abort();
-	}
-
-	switch_channel_init(session->channel, session, CS_NEW, 0);
-
-	if (direction == SWITCH_CALL_DIRECTION_OUTBOUND) {
-		switch_channel_set_flag(session->channel, CF_OUTBOUND);
-	}
-
 	/* The session *IS* the pool you may not alter it because you have no idea how
 	   its all private it will be passed to the thread run function */
 
@@ -2466,6 +2456,16 @@ SWITCH_DECLARE(switch_core_session_t *) switch_core_session_request_uuid(switch_
 	} else {
 		switch_uuid_get(&uuid);
 		switch_uuid_format(session->uuid_str, &uuid);
+	}
+
+	if (switch_channel_alloc(&session->channel, direction, session->pool) != SWITCH_STATUS_SUCCESS) {
+		abort();
+	}
+
+	switch_channel_init(session->channel, session, CS_NEW, 0);
+
+	if (direction == SWITCH_CALL_DIRECTION_OUTBOUND) {
+		switch_channel_set_flag(session->channel, CF_OUTBOUND);
 	}
 
 	switch_channel_set_variable(session->channel, "uuid", session->uuid_str);

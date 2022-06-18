@@ -32,6 +32,7 @@
  */
 
 #include <switch.h>
+#include <switch_probes.h>
 #include <switch_channel.h>
 #include <pcre.h>
 
@@ -767,9 +768,26 @@ SWITCH_DECLARE(switch_status_t) switch_channel_init(switch_channel_t *channel, s
 													switch_channel_flag_t flag)
 {
 	switch_assert(channel != NULL);
+	switch_assert(session != NULL);
+	if (TRACE_FREESWITCH_CHANNEL_STATE_CHANGE_ENABLED())
+		TRACE_FREESWITCH_CHANNEL_STATE_CHANGE(
+			channel,
+			switch_core_session_get_uuid(session),
+			switch_channel_get_name(channel),
+			"<null>",
+			switch_channel_state_name(state)
+		);
 	channel->state = state;
 	switch_channel_set_flag(channel, flag);
 	channel->session = session;
+	if (TRACE_FREESWITCH_CHANNEL_RUNNING_STATE_CHANGE_ENABLED())
+		TRACE_FREESWITCH_CHANNEL_RUNNING_STATE_CHANGE(
+			channel,
+			switch_core_session_get_uuid(session),
+			switch_channel_get_name(channel),
+			"<null>",
+			switch_channel_state_name(CS_NONE)
+		);
 	channel->running_state = CS_NONE;
 	return SWITCH_STATUS_SUCCESS;
 }
@@ -2368,7 +2386,14 @@ SWITCH_DECLARE(switch_channel_state_t) switch_channel_perform_set_running_state(
 					  channel->name, state_names[state], switch_core_session_count(), switch_core_session_id() - 1);
 
 	switch_mutex_lock(channel->state_mutex);
-
+	if (TRACE_FREESWITCH_CHANNEL_RUNNING_STATE_CHANGE_ENABLED())
+		TRACE_FREESWITCH_CHANNEL_RUNNING_STATE_CHANGE(
+			channel,
+			switch_channel_get_uuid(channel),
+			switch_channel_get_name(channel),
+			switch_channel_state_name(channel->running_state),
+			switch_channel_state_name(state)
+		);
 	careful_set(channel, &channel->running_state, state);
 
 	if (state <= CS_DESTROY) {
@@ -2596,6 +2621,14 @@ SWITCH_DECLARE(switch_channel_state_t) switch_channel_perform_set_state(switch_c
 		switch_log_printf(SWITCH_CHANNEL_ID_LOG, file, func, line, switch_channel_get_uuid(channel), SWITCH_LOG_DEBUG, "(%s) State Change %s -> %s\n",
 						  channel->name, state_names[last_state], state_names[state]);
 
+		if (TRACE_FREESWITCH_CHANNEL_STATE_CHANGE_ENABLED())
+			TRACE_FREESWITCH_CHANNEL_STATE_CHANGE(
+				channel,
+				switch_channel_get_uuid(channel),
+				switch_channel_get_name(channel),
+				switch_channel_state_name(channel->state),
+				switch_channel_state_name(state)
+			);
 		careful_set(channel, &channel->state, state);
 
 		if (state == CS_HANGUP && !channel->hangup_cause) {
@@ -3398,6 +3431,14 @@ SWITCH_DECLARE(switch_channel_state_t) switch_channel_perform_hangup(switch_chan
 
 		switch_mutex_lock(channel->state_mutex);
 		last_state = channel->state;
+		if (TRACE_FREESWITCH_CHANNEL_STATE_CHANGE_ENABLED())
+			TRACE_FREESWITCH_CHANNEL_STATE_CHANGE(
+				channel,
+				switch_channel_get_uuid(channel),
+				switch_channel_get_name(channel),
+				switch_channel_state_name(channel->state),
+				switch_channel_state_name(CS_HANGUP)
+			);
 		channel->state = CS_HANGUP;
 		switch_mutex_unlock(channel->state_mutex);
 

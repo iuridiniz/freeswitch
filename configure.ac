@@ -2059,6 +2059,27 @@ if test "${enable_pool_sanitizer}" = "yes"; then
   ac_configure_args="$ac_configure_args --enable-pool-debug=yes"
 fi
 
+
+#  DTrace USDT probes (requires dtrace command line tool in path, on linux package systemtap-sdt-devel provides it)
+AC_ARG_ENABLE(dtrace,
+  [AC_HELP_STRING([--enable-dtrace],[build with DTrace support])],
+  [enable_dtrace="$enable_dtrace"],
+  [enable_dtrace="no"])
+
+if test "${enable_dtrace}" = "yes"; then
+  AC_MSG_CHECKING([for dtrace program])
+  AC_PATH_PROG([DTRACE], ["dtrace"], ["no"], ["$PATH:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"])
+  if test "$DTRACE" != "no"; then
+    AC_MSG_RESULT([dtrace found at $DTRACE])
+  else
+    AC_MSG_RESULT([dtrace not found])
+    AC_MSG_ERROR([dtrace command not found on \$PATH. USDT probes requires dtrace command line tool])
+  fi
+fi
+AM_CONDITIONAL(ENABLE_DTRACE, [test "${enable_dtrace}" = "yes" -a "$DTRACE" != "no"])
+AC_DEFINE([ENABLE_DTRACE], [test "${enable_dtrace}" = "yes" -a "$DTRACE" != "no"], [DTrace USDT probes])
+
+
 # we never use this, and hard setting it will make cross compile work better
 ac_cv_file_dbd_apr_dbd_mysql_c=no
 
