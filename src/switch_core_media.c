@@ -7207,7 +7207,10 @@ static switch_status_t perform_write(switch_core_session_t *session, switch_fram
 			switch_frame_t *dupframe = NULL;
 
 			if (switch_frame_buffer_dup(a_engine->write_fb, frame, &dupframe) == SWITCH_STATUS_SUCCESS) {
-				switch_frame_buffer_push(a_engine->write_fb, dupframe);
+				switch_status_t ret = switch_frame_buffer_push(a_engine->write_fb, dupframe);
+				if (__builtin_expect(ret != SWITCH_STATUS_SUCCESS, 0)) {
+					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_WARNING, "[perform_write] Error pushing frame to buffer (a_engine->write_fb). Return = %u [APR_EOF is %u]\n", ret, APR_EOF);
+				}
 				dupframe = NULL;
 				return SWITCH_STATUS_SUCCESS;
 			}
@@ -7332,6 +7335,10 @@ static void *SWITCH_THREAD_FUNC audio_write_thread(switch_thread_t *thread, void
 		}
 	}
 
+	// sinalize (to other threads that are using a_engine->write_fb) that we are done
+	switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "%s Terminating Audio write thread [terminate frame buffer]\n", switch_core_session_get_name(session));
+	switch_frame_buffer_term(a_engine->write_fb);
+
 	switch_mutex_lock(smh->control_mutex);
 	mh->up = 0;
 	switch_mutex_unlock(smh->control_mutex);
@@ -7339,6 +7346,8 @@ static void *SWITCH_THREAD_FUNC audio_write_thread(switch_thread_t *thread, void
 	switch_core_timer_destroy(&timer);
 
 	switch_core_session_rwunlock(session);
+	switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "%s Terminating Audio write thread [end]\n", switch_core_session_get_name(session));
+
 	return NULL;
 }
 
@@ -8406,7 +8415,10 @@ SWITCH_DECLARE(void) switch_core_media_deactivate_rtp(switch_core_session_t *ses
 
 		switch_mutex_lock(smh->control_mutex);
 		if (a_engine->mh.up && a_engine->write_fb) {
-			switch_frame_buffer_push(a_engine->write_fb, (void *) 1);
+			switch_status_t ret = switch_frame_buffer_push(a_engine->write_fb, (void *) 1);
+			if (__builtin_expect(ret != SWITCH_STATUS_SUCCESS, 0)) {
+				switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_WARNING, "[switch_core_media_deactivate_rtp] Error pushing frame to buffer (a_engine->write_fb). Return = %u [APR_EOF is %u]\n", ret, APR_EOF);
+			}
 		}
 		a_engine->mh.up = 0;
 		switch_mutex_unlock(smh->control_mutex);
